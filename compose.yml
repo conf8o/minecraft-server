@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  minecraft:
+    image: itzg/minecraft-server
+    container_name: mc-server
+    ports:
+      - "25565:25565"  # Minecraftのデフォルトポート
+    environment:
+      EULA: "TRUE"           # Mojangの利用規約に同意
+      VERSION: "1.20.1"      # バージョン指定（任意）
+      TYPE: "VANILLA"        # 他に FORGE, FABRIC, SPIGOT, PAPER などが選べる
+      ENABLE_RCON: "false"   # RCON不要なら false
+      MAX_PLAYERS: "10"
+      WHITE_LIST: "true"     # ホワイトリスト有効化（プレイヤー追加要）
+      MEMORY: "2G"           # Javaヒープメモリ割り当て
+    volumes:
+      - ./mc_data:/data      # ローカルディレクトリにデータを永続化
+    restart: unless-stopped  # Docker再起動後も自動起動
