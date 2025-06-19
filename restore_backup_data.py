@@ -3,7 +3,7 @@ import shutil
 import sys
 
 SOURCE_FOLDER = "./mc_data"  # 復元先フォルダ
-BACKUP_PREFIX = "backup_"  # バックアップフォルダのプレフィックス
+BACKUP_PREFIX = "mc_backup_"  # バックアップフォルダのプレフィックス
 
 def restore_backup(backup_folder):
     if not os.path.exists(backup_folder):
