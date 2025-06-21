@@ -31,9 +31,9 @@ class BackupConfig:
   @staticmethod
   def validate_file_list() -> None:
     """
-    バックアップ元のファイルの検証。
-    デフォルトのリストは、存在しなければ例外を投げる
-    動的なリストは、存在しなければ警告を出す
+    バックアップ元のファイルの検証。\n
+    デフォルトのリストは、存在しなければ例外を投げる。\n
+    動的なリストは、存在しなければ警告を出す。
     """
     missing_default_items = [
         item for item in BackupConfig.default_files_to_backup
@@ -51,9 +51,9 @@ class BackupConfig:
   @staticmethod
   def read_backup_id(s: str | None) -> str:
     """
-    バックアップIDを生成する。
-    現在の日時を基にした文字列を返す。
-    フォーマットは yyyymmddhh
+    バックアップIDを生成する。\n
+    現在の日時を基にした文字列を返す。\n
+    フォーマットは yyyymmddhh。
     """
     if s:
         if not s.isdigit() or len(s) != 10:
