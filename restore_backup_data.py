@@ -1,5 +1,4 @@
 import os
-import shutil
 import sys
 from .backup_config import BackupConfig
 from .lib import copy_item

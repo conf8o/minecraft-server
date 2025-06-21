@@ -1,6 +1,5 @@
 import os
 import sys
-from datetime import datetime
 from .backup_config import BackupConfig
 from .lib import copy_item
 
