@@ -3,13 +3,14 @@ import sys
 from datetime import datetime
 import shutil
 
-DEFAULT_FILE_LIST_PATH = "./save_default_files_list.txt"  # グローバル変数として定義
-SOURCE_FOLDER = "./mc_data"  # バックアップ元フォルダをグローバル変数として定義
-DYNAMIC_FILE_LIST_PATH = "./save_dynamic_files_list.txt"  # 動的ファイルリストの保存先
-BACKUP_PREFIX = "mc_backup_"  # バックアップフォルダのプレフィックス
+DEFAULT_FILE_LIST_PATH = "./save_default_files_list.txt"  # バックアップするファイルのリスト
+DYNAMIC_FILE_LIST_PATH = "./save_dynamic_files_list.txt"  # バックアップするファイルのリストのうち動的に生成されるやつ
+SOURCE_FOLDER = "./mc_data"  # バックアップ元フォルダ
+MC_DATA_BACKUP_FOLDER = "./mc_data_backup"  # バックアップ先の親フォルダ
+BACKUP_PREFIX = "backup_"  # バックアップフォルダのプレフィックス
 
 def prepare_backup_folder_name(date_str):
-    backup_folder = f"{BACKUP_PREFIX}{date_str}"
+    backup_folder = os.path.join(MC_DATA_BACKUP_FOLDER, f"{BACKUP_PREFIX}{date_str}")
     print(f"Proposed backup folder name: '{backup_folder}'")
     proceed = input("Do you want to proceed with this folder name? (y/n): ").strip().lower()
     if proceed != 'y':
@@ -39,11 +40,11 @@ def get_backup_list(file_list_path):
     with open(file_list_path, "r") as file:
         return [line.strip() for line in file if line.strip()]
 
-def validate_source_and_files(source_folder, default_files_to_backup, dynamic_files_to_backup):
-    # Default files: Throw exception if missing
+def validate_source_files(default_files_to_backup, dynamic_files_to_backup):
+    # デフォルトのバックアップファイルの存在を確認。存在しなければ例外を投げる
     missing_default_items = [
         item for item in default_files_to_backup
-        if not os.path.exists(os.path.join(source_folder, item))
+        if not os.path.exists(os.path.join(SOURCE_FOLDER, item))
     ]
     if missing_default_items:
         raise FileNotFoundError(
@@ -51,63 +52,69 @@ def validate_source_and_files(source_folder, default_files_to_backup, dynamic_fi
             "\n".join(f"- {item}" for item in missing_default_items)
         )
     
-    # Dynamic files: Warn if missing
+    # 動的なファイルのリストは存在しない場合は警告を出す
     for item in dynamic_files_to_backup:
-        if not os.path.exists(os.path.join(source_folder, item)):
-            print(f"Warning: Dynamic file or folder '{item}' does not exist and was skipped.")
+        if not os.path.exists(os.path.join(SOURCE_FOLDER, item)):
+            print(f"Warning: Dynamic file or folder '{item}' does not exist and will be skipped.")
+
+def copy_item(item, source_folder, destination_folder):
+    source_path = os.path.join(source_folder, item)
+    destination_path = os.path.join(destination_folder, item)
+
+    print(f"Copying '{source_path}' to '{destination_path}'.")
+    if os.path.isdir(source_path):
+        shutil.copytree(source_path, destination_path, dirs_exist_ok=True)
+    else:
+        shutil.copy2(source_path, destination_path)
+    print(f"Copied '{source_path}' to '{destination_path}'.")
 
 def perform_backup(backup_folder):
     try:
-        # Get files to backup
+        # バックアップファイルのリスト
         default_files_to_backup = get_backup_list(DEFAULT_FILE_LIST_PATH)
-        dynamic_files_to_backup = get_backup_list(DYNAMIC_FILE_LIST_PATH)  # 動的扱いのファイル/フォルダ
+        dynamic_files_to_backup = get_backup_list(DYNAMIC_FILE_LIST_PATH)
         
-        # Validate source folder and required files. If invalid, raise an exception
-        validate_source_and_files(SOURCE_FOLDER, default_files_to_backup, dynamic_files_to_backup)
+        # バックアップ元のファイルの検証。
+        # デフォルトのリストは、存在しなければ例外を投げる
+        # 動的なリストは、存在しなければ警告を出す
+        validate_source_files(default_files_to_backup, dynamic_files_to_backup)
         
-        all_files_to_backup = default_files_to_backup + dynamic_files_to_backup
+        os.makedirs(backup_folder, exist_ok=True)
+
+        for item in default_files_to_backup:
+            copy_item(item, SOURCE_FOLDER, backup_folder)
+
+        for item in dynamic_files_to_backup:
+            if os.path.exists(os.path.join(SOURCE_FOLDER, item)):
+                copy_item(item, SOURCE_FOLDER, backup_folder)
         
-        destination_folder = backup_folder  # 直接バックアップフォルダを使用
-        
-        os.makedirs(destination_folder, exist_ok=True)
-        
-        # Copy listed files and directories
-        for item in all_files_to_backup:
-            source_path = os.path.join(SOURCE_FOLDER, item)
-            destination_path = os.path.join(destination_folder, item)
-            
-            if os.path.exists(source_path):
-                if os.path.isdir(source_path):
-                    shutil.copytree(source_path, destination_path)
-                else:
-                    shutil.copy2(source_path, destination_path)
-                print(f"Copied '{source_path}' to '{destination_path}'.")
-            else:
-                if item in dynamic_files_to_backup:
-                    print(f"Warning: Dynamic file or folder '{item}' does not exist and was skipped.")
-                else:
-                    print(f"Error: Required file or folder '{item}' does not exist.")
-        
-        print(f"Backup completed successfully to '{destination_folder}'.")
+        print(f"Backup completed successfully to '{backup_folder}'.")
     except FileNotFoundError as e:
         print(e)
         print("Backup aborted.")
     except Exception as e:
         print(f"An error occurred during backup: {e}")
 
-def main():
-    # Get date argument or use current date/time
+def read_backup_id():
     if len(sys.argv) > 1:
-        date_str = sys.argv[1]
+        backup_id = sys.argv[1]
+        # 形式の検証 (yyyymmddhh)
+        if not backup_id.isdigit() or len(backup_id) != 10:
+            raise ValueError("Invalid backup ID format. Expected yyyymmddhh.")
+        return backup_id
     else:
-        date_str = datetime.now().strftime("%Y%m%d%H")
-    
-    print(f"Using date: {date_str}")
-    backup_folder_name = prepare_backup_folder_name(date_str)
-    if backup_folder_name:
-        backup_folder = create_backup_folder(backup_folder_name)
-        if backup_folder:
-            perform_backup(backup_folder)
+        raise ValueError("Backup ID is required as a program argument.")
+
+def main():
+    try:
+        backup_id = read_backup_id()
+        print(f"Using backup ID: {backup_id}")
+        backup_folder_name = prepare_backup_folder_name(backup_id)
+        if backup_folder_name:
+            perform_backup(backup_folder_name)
+    except ValueError as e:
+        print(e)
+        print("Backup aborted.")
 
 if __name__ == "__main__":
     main()
